@@ -24,7 +24,7 @@
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
                 <h3 class="font-bold text-base text-gray-900 mb-1 border-b pb-2">Jus</h3>
                 <p class="text-xs text-gray-500 mb-3">
-                    Pilih ukuran langsung (<strong>+ Biasa</strong> / <strong>+ Besar</strong>). Bisa pesan ukuran berbeda &amp; tambah <strong>Mix (+Rp 2.000)</strong> per cup.
+                    Pilih ukuran langsung (<strong>+ Biasa</strong> / <strong>+ Besar</strong>). Jika beli beberapa cup dan hanya 1 cup yang di-<strong>Mix (+Rp 2.000)</strong>, pilih mix di pesanan—sisa cup otomatis tetap tanpa mix.
                 </p>
                 <div id="list-jus" class="divide-y"></div>
             </div>
@@ -91,7 +91,6 @@
             <div class="bg-green-50 p-3 rounded-lg border border-green-200">
                 <p class="text-sm text-gray-600">Total yang harus dibayar:</p>
                 <p id="total-harga" class="text-2xl font-extrabold text-green-700">Rp 0</p>
-                <p id="info-kode-unik" class="text-xs text-orange-600 mt-1 hidden"></p>
             </div>
         </section>
 
@@ -117,7 +116,6 @@
 
     <script>
         const NOMOR_TOKO_WA = "6285156148102";
-        const kodeUnik = Math.floor(Math.random() * 89) + 10; // 10 - 98
         const BIAYA_MIX = 2000;
 
         // Atur `habis: true` jika menu sedang kosong, lalu commit di GitHub
@@ -272,9 +270,39 @@
         }
 
         function ubahMixCart(uid, mixBaru) {
-            const target = cartItems.find(c => c.uid === uid);
-            if (!target) return;
-            target.mixBuah = mixBaru;
+            const idx = cartItems.findIndex(c => c.uid === uid);
+            if (idx === -1) return;
+            const target = cartItems[idx];
+
+            // Jika qty > 1 dan memilih mix (atau mengubah ke mix lain), pecah 1 cup agar sisanya tetap tanpa mix
+            if (target.isJus && mixBaru && target.qty > 1) {
+                target.qty -= 1;
+
+                const existingSameMix = cartItems.find(
+                    c => c.kategoriKey === target.kategoriKey &&
+                         c.nama === target.nama &&
+                         c.varian === target.varian &&
+                         c.mixBuah === mixBaru
+                );
+
+                if (existingSameMix) {
+                    existingSameMix.qty += 1;
+                } else {
+                    cartItems.splice(idx + 1, 0, {
+                        uid: uidCounter++,
+                        kategoriKey: target.kategoriKey,
+                        nama: target.nama,
+                        hargaMap: target.hargaMap,
+                        varian: target.varian,
+                        mixBuah: mixBaru,
+                        qty: 1,
+                        isJus: true
+                    });
+                }
+            } else {
+                target.mixBuah = mixBaru;
+            }
+
             renderKeranjang();
         }
 
@@ -387,23 +415,17 @@
                 : hitungSubtotalDanRincian();
 
             const { subtotal, totalItemQty } = calc;
-            const infoUnik = document.getElementById("info-kode-unik");
             const stickyBar = document.getElementById("sticky-bar");
 
             if (subtotal === 0) {
                 document.getElementById("total-harga").innerText = formatRp(0);
-                infoUnik.classList.add("hidden");
                 stickyBar.classList.add("hidden");
                 return;
             }
 
-            const totalAkhir = subtotal + kodeUnik;
-            document.getElementById("total-harga").innerText = formatRp(totalAkhir);
-            infoUnik.innerText = `*(Subtotal ${formatRp(subtotal)} + kode unik Rp ${kodeUnik})*`;
-            infoUnik.classList.remove("hidden");
-
+            document.getElementById("total-harga").innerText = formatRp(subtotal);
             document.getElementById("sticky-ringkasan").innerText = `${totalItemQty} item dipilih`;
-            document.getElementById("sticky-total").innerText = formatRp(totalAkhir);
+            document.getElementById("sticky-total").innerText = formatRp(subtotal);
             stickyBar.classList.remove("hidden");
         }
 
@@ -429,8 +451,6 @@
                 return `- ${item.qty}x ${item.nama}${labelVarian}${labelMix} (${formatRp(item.totalBaris)})`;
             });
 
-            const totalAkhir = subtotal + kodeUnik;
-
             let pesan =
                 `Halo Kak, saya mau pesan (Self-Pickup):\n\n` +
                 `*Nama:* ${nama}\n` +
@@ -442,8 +462,7 @@
             }
 
             pesan +=
-                `\n*Subtotal:* ${formatRp(subtotal)}\n` +
-                `*Total Transfer (Kode Unik +${kodeUnik}):* *${formatRp(totalAkhir)}*\n\n` +
+                `\n*Total Pembayaran:* *${formatRp(subtotal)}*\n\n` +
                 `Berikut saya lampirkan screenshot bukti transfer QRIS-nya ya Kak. Terima kasih! 🙏`;
 
             const urlWA = `https://wa.me/${NOMOR_TOKO_WA}?text=${encodeURIComponent(pesan)}`;

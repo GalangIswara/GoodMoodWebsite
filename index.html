@@ -14,7 +14,7 @@
         <p class="text-sm text-green-100">Pesan Jus, Soup, Salad online, bayar QRIS, tinggal ambil di outlet!</p>
     </header>
 
-    <main class="max-w-lg mx-auto p-4 pb-24">
+    <main class="max-w-lg mx-auto p-4 pb-28">
 
         <!-- BAGIAN 1: PILIH MENU -->
         <section class="mb-6 space-y-6">
@@ -24,7 +24,7 @@
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
                 <h3 class="font-bold text-base text-gray-900 mb-1 border-b pb-2">Jus</h3>
                 <p class="text-xs text-gray-500 mb-3">
-                    Klik <strong>+ Tambah</strong> untuk memasukkan jus. Jika ingin pesan ukuran Biasa & Besar sekaligus atau mix berbeda, klik <strong>+ Tambah</strong> lagi (+ Rp 2.000 / cup mix).
+                    Pilih ukuran langsung (<strong>+ Biasa</strong> / <strong>+ Besar</strong>). Bisa pesan ukuran berbeda &amp; tambah <strong>Mix (+Rp 2.000)</strong> per cup.
                 </p>
                 <div id="list-jus" class="divide-y"></div>
             </div>
@@ -48,11 +48,16 @@
             </div>
         </section>
 
-        <!-- RINGKASAN PESANAN TERPILIH -->
-        <section class="mb-6 bg-white p-4 rounded-xl shadow border border-green-300">
-            <h2 class="font-bold text-lg mb-3 text-green-700">Ringkasan Pesanan</h2>
+        <!-- PESANAN DIPILIH -->
+        <section id="section-ringkasan" class="mb-6 bg-white p-4 rounded-xl shadow border border-green-300">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-bold text-lg text-green-700">Pesanan Dipilih</h2>
+                <button type="button" onclick="kosongkanKeranjang()" id="btn-kosongkan" class="hidden text-xs text-red-600 hover:underline font-medium">
+                    Kosongkan
+                </button>
+            </div>
             <div id="keranjang-list" class="space-y-2.5 text-sm">
-                <p class="text-gray-400 italic text-xs">Belum ada menu yang ditambahkan.</p>
+                <p class="text-gray-400 italic text-xs">Belum ada menu yang dipilih.</p>
             </div>
         </section>
 
@@ -74,7 +79,7 @@
         </section>
 
         <!-- BAGIAN 3: PEMBAYARAN QRIS -->
-        <section class="mb-6 bg-white p-4 rounded-xl shadow border border-gray-200 text-center">
+        <section id="section-qris" class="mb-6 bg-white p-4 rounded-xl shadow border border-gray-200 text-center">
             <h2 class="font-bold text-lg mb-2 text-green-700 text-left">Pembayaran QRIS</h2>
             <p class="text-xs text-gray-500 mb-3 text-left">Scan QRIS di bawah, bayar sesuai <strong>Total Harga Tertera</strong>, lalu kirim bukti transfer di WhatsApp, Pesanan akan diproses</p>
 
@@ -92,10 +97,23 @@
 
         <!-- TOMBOL KIRIM WA -->
         <button onclick="kirimPesanan()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
-            <span>📲 Konfirmasi & Kirim Pesanan ke WA</span>
+            <span>📲 Konfirmasi &amp; Kirim Pesanan ke WA</span>
         </button>
 
     </main>
+
+    <!-- STICKY BAR BAWAH -->
+    <div id="sticky-bar" class="hidden fixed bottom-0 inset-x-0 bg-white border-t border-green-200 shadow-lg z-20">
+        <div class="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+            <div>
+                <p id="sticky-ringkasan" class="text-xs text-gray-500">0 item</p>
+                <p id="sticky-total" class="text-base font-extrabold text-green-700">Rp 0</p>
+            </div>
+            <button type="button" onclick="scrollKeBagian('section-ringkasan')" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-lg shrink-0">
+                Cek Pesanan &amp; Bayar →
+            </button>
+        </div>
+    </div>
 
     <script>
         const NOMOR_TOKO_WA = "6285156148102";
@@ -145,6 +163,11 @@
             return "Rp " + angka.toLocaleString("id-ID");
         }
 
+        function scrollKeBagian(id) {
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
         function buatOpsiMixBuah(namaJusSaatIni, terpilih) {
             const daftarBuah = menuData.jus
                 .filter(j => !j.habis && j.nama !== namaJusSaatIni)
@@ -165,57 +188,78 @@
             items.forEach((item, idx) => {
                 const habis = Boolean(item.habis);
                 const varianList = Object.entries(item.harga);
-                const ringkasanHarga = varianList.map(([label, h]) => `${label}: ${formatRp(h)}`).join(" • ");
+
+                let tombolHtml = "";
+                if (habis) {
+                    tombolHtml = `<span class="text-xs font-semibold text-gray-400 px-2.5 py-1 rounded bg-gray-100">Kosong</span>`;
+                } else if (kategoriKey === "jus" && varianList.length > 1) {
+                    tombolHtml = varianList.map(([label, harga]) => `
+                        <button
+                            type="button"
+                            onclick="tambahKeKeranjang('${kategoriKey}', ${idx}, '${label}')"
+                            class="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            + ${label} <span class="font-normal opacity-90">(${formatRp(harga)})</span>
+                        </button>
+                    `).join("");
+                } else {
+                    const defaultVarian = varianList[0][0];
+                    const ringkasanHarga = varianList.map(([label, h]) => `${label}: ${formatRp(h)}`).join(" • ");
+                    tombolHtml = `
+                        <div class="text-right">
+                            <span class="block text-xs text-green-700 font-semibold mb-1">${ringkasanHarga}</span>
+                            <button
+                                type="button"
+                                onclick="tambahKeKeranjang('${kategoriKey}', ${idx}, '${defaultVarian}')"
+                                class="text-xs font-bold px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                + Tambah
+                            </button>
+                        </div>
+                    `;
+                }
 
                 const row = document.createElement("div");
-                row.className = `flex items-center justify-between gap-2 py-2.5 ${habis ? "opacity-60" : ""}`;
+                row.className = `py-2.5 ${habis ? "opacity-60" : ""}`;
                 row.innerHTML = `
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <p class="font-semibold text-sm text-gray-800">${item.nama}</p>
-                            ${habis ? `<span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">HABIS</span>` : ""}
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="font-semibold text-sm text-gray-800">${item.nama}</p>
+                                ${habis ? `<span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">HABIS</span>` : ""}
+                            </div>
                         </div>
-                        <p class="text-xs text-green-700 font-medium mt-0.5">${ringkasanHarga}</p>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            ${tombolHtml}
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        ${habis ? "disabled" : ""}
-                        onclick="tambahKeKeranjang('${kategoriKey}', ${idx})"
-                        class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg ${habis ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}"
-                    >
-                        + Tambah
-                    </button>
                 `;
                 container.appendChild(row);
             });
         }
 
-        function tambahKeKeranjang(kategoriKey, idx) {
+        function tambahKeKeranjang(kategoriKey, idx, varianDipilih) {
             const item = menuData[kategoriKey][idx];
             if (!item || item.habis) return;
 
-            const varianList = Object.entries(item.harga);
-            const defaultVarian = varianList[0][0];
+            const existing = cartItems.find(
+                c => c.kategoriKey === kategoriKey && c.nama === item.nama && c.varian === varianDipilih && !c.mixBuah
+            );
 
-            if (kategoriKey !== "jus") {
-                const existing = cartItems.find(c => c.kategoriKey === kategoriKey && c.nama === item.nama);
-                if (existing) {
-                    existing.qty += 1;
-                    renderKeranjang();
-                    return;
-                }
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cartItems.push({
+                    uid: uidCounter++,
+                    kategoriKey,
+                    nama: item.nama,
+                    hargaMap: item.harga,
+                    varian: varianDipilih,
+                    mixBuah: "",
+                    qty: 1,
+                    isJus: kategoriKey === "jus"
+                });
             }
-
-            cartItems.push({
-                uid: uidCounter++,
-                kategoriKey,
-                nama: item.nama,
-                hargaMap: item.harga,
-                varian: defaultVarian,
-                mixBuah: "",
-                qty: 1,
-                isJus: kategoriKey === "jus"
-            });
 
             renderKeranjang();
         }
@@ -246,13 +290,26 @@
             renderKeranjang();
         }
 
+        function hapusItemCart(uid) {
+            cartItems = cartItems.filter(c => c.uid !== uid);
+            renderKeranjang();
+        }
+
+        function kosongkanKeranjang() {
+            cartItems = [];
+            renderKeranjang();
+        }
+
         function hitungSubtotalDanRincian() {
             let subtotal = 0;
+            let totalItemQty = 0;
+
             const rincian = cartItems.map(c => {
                 const hargaSatuan = c.hargaMap[c.varian] || 0;
                 const biayaMixPerCup = (c.isJus && c.mixBuah) ? BIAYA_MIX : 0;
                 const totalBaris = (hargaSatuan + biayaMixPerCup) * c.qty;
                 subtotal += totalBaris;
+                totalItemQty += c.qty;
 
                 return {
                     ...c,
@@ -262,31 +319,34 @@
                 };
             });
 
-            return { subtotal, rincian };
+            return { subtotal, totalItemQty, rincian };
         }
 
         function renderKeranjang() {
             const container = document.getElementById("keranjang-list");
+            const btnKosongkan = document.getElementById("btn-kosongkan");
 
             if (cartItems.length === 0) {
-                container.innerHTML = `<p class="text-gray-400 italic text-xs">Belum ada menu yang ditambahkan.</p>`;
-                hitungTotal();
+                container.innerHTML = `<p class="text-gray-400 italic text-xs">Belum ada menu yang dipilih.</p>`;
+                btnKosongkan.classList.add("hidden");
+                hitungTotal(0, 0);
                 return;
             }
 
-            const { subtotal, rincian } = hitungSubtotalDanRincian();
+            btnKosongkan.classList.remove("hidden");
+            const { subtotal, totalItemQty, rincian } = hitungSubtotalDanRincian();
 
             container.innerHTML = rincian.map(item => {
                 const varianEntries = Object.entries(item.hargaMap);
                 const selectVarianHtml = varianEntries.length > 1
-                    ? `<select onchange="ubahVarianCart(${item.uid}, this.value)" class="text-xs border rounded px-2 py-1 bg-gray-50">
+                    ? `<select onchange="ubahVarianCart(${item.uid}, this.value)" class="text-xs border rounded px-2 py-1 bg-white">
                         ${varianEntries.map(([vLabel, vHarga]) => `
                             <option value="${vLabel}" ${item.varian === vLabel ? "selected" : ""}>
                                 ${vLabel} (${formatRp(vHarga)})
                             </option>
                         `).join("")}
                        </select>`
-                    : `<span class="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">${item.varian} • ${formatRp(item.hargaSatuan)}</span>`;
+                    : `<span class="text-xs text-gray-600 bg-white border px-2 py-0.5 rounded">${item.varian} • ${formatRp(item.hargaSatuan)}</span>`;
 
                 const selectMixHtml = item.isJus
                     ? `<select onchange="ubahMixCart(${item.uid}, this.value)" class="text-xs border border-green-300 rounded px-2 py-1 bg-green-50 text-green-900">
@@ -297,14 +357,17 @@
                 return `
                     <div class="p-2.5 rounded-lg border border-gray-200 bg-gray-50">
                         <div class="flex items-start justify-between gap-2">
-                            <div>
+                            <div class="min-w-0">
                                 <p class="font-bold text-gray-800">${item.nama}</p>
                                 <div class="flex items-center gap-1.5 flex-wrap mt-1">
                                     ${selectVarianHtml}
                                     ${selectMixHtml}
                                 </div>
                             </div>
-                            <p class="font-bold text-green-700 text-sm shrink-0">${formatRp(item.totalBaris)}</p>
+                            <div class="text-right shrink-0">
+                                <p class="font-bold text-green-700 text-sm">${formatRp(item.totalBaris)}</p>
+                                <button type="button" onclick="hapusItemCart(${item.uid})" class="text-[11px] text-red-500 hover:underline mt-0.5">Hapus</button>
+                            </div>
                         </div>
                         <div class="flex items-center justify-end gap-2 mt-2">
                             <button type="button" onclick="ubahQtyCart(${item.uid}, -1)" class="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 font-bold text-xs">-</button>
@@ -315,19 +378,22 @@
                 `;
             }).join("");
 
-            hitungTotal(subtotal);
+            hitungTotal(subtotal, totalItemQty);
         }
 
-        function hitungTotal(subtotalLangsung) {
-            const subtotal = typeof subtotalLangsung === "number"
-                ? subtotalLangsung
-                : hitungSubtotalDanRincian().subtotal;
+        function hitungTotal(subtotalLangsung, totalItemQtyLangsung) {
+            const calc = (typeof subtotalLangsung === "number")
+                ? { subtotal: subtotalLangsung, totalItemQty: totalItemQtyLangsung || 0 }
+                : hitungSubtotalDanRincian();
 
+            const { subtotal, totalItemQty } = calc;
             const infoUnik = document.getElementById("info-kode-unik");
+            const stickyBar = document.getElementById("sticky-bar");
 
             if (subtotal === 0) {
                 document.getElementById("total-harga").innerText = formatRp(0);
                 infoUnik.classList.add("hidden");
+                stickyBar.classList.add("hidden");
                 return;
             }
 
@@ -335,6 +401,10 @@
             document.getElementById("total-harga").innerText = formatRp(totalAkhir);
             infoUnik.innerText = `*(Subtotal ${formatRp(subtotal)} + kode unik Rp ${kodeUnik})*`;
             infoUnik.classList.remove("hidden");
+
+            document.getElementById("sticky-ringkasan").innerText = `${totalItemQty} item dipilih`;
+            document.getElementById("sticky-total").innerText = formatRp(totalAkhir);
+            stickyBar.classList.remove("hidden");
         }
 
         function kirimPesanan() {
@@ -349,7 +419,7 @@
             }
 
             if (rincian.length === 0) {
-                alert("Tambahkan minimal 1 menu ke pesanan terlebih dahulu!");
+                alert("Pilih minimal 1 menu terlebih dahulu!");
                 return;
             }
 

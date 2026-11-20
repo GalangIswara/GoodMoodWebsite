@@ -123,7 +123,7 @@
             jus: [
                 { nama: "Buah Naga", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
                 { nama: "Belimbing", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
-                { nama: "Jeruk   ", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
+                { nama: "Jeruk", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
                 { nama: "Jambu Biji", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
                 { nama: "Tomat", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
                 { nama: "Semangka", harga: { Biasa: 8000, Besar: 10000 }, habis: false },
@@ -191,25 +191,29 @@
                 if (habis) {
                     tombolHtml = `<span class="text-xs font-semibold text-gray-400 px-2.5 py-1 rounded bg-gray-100">Kosong</span>`;
                 } else if (kategoriKey === "jus" && varianList.length > 1) {
-                    tombolHtml = varianList.map(([label, harga]) => `
-                        <button
-                            type="button"
-                            onclick="tambahKeKeranjang('${kategoriKey}', ${idx}, '${label}')"
-                            class="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                            + ${label} <span class="font-normal opacity-90">(${formatRp(harga)})</span>
-                        </button>
-                    `).join("");
+                    tombolHtml = `
+                        <div class="grid grid-cols-2 gap-2 mt-2 w-full">
+                            ${varianList.map(([label, harga]) => `
+                                <button
+                                    type="button"
+                                    onclick="tambahKeKeranjang('${kategoriKey}', ${idx}, '${label}')"
+                                    class="w-full text-center text-xs font-bold py-2 px-2 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                    + ${label} <span class="font-normal opacity-90">(${formatRp(harga)})</span>
+                                </button>
+                            `).join("")}
+                        </div>
+                    `;
                 } else {
                     const defaultVarian = varianList[0][0];
                     const ringkasanHarga = varianList.map(([label, h]) => `${label}: ${formatRp(h)}`).join(" • ");
                     tombolHtml = `
-                        <div class="text-right">
-                            <span class="block text-xs text-green-700 font-semibold mb-1">${ringkasanHarga}</span>
+                        <div class="flex items-center justify-between gap-2 mt-1.5">
+                            <span class="text-xs text-green-700 font-semibold">${ringkasanHarga}</span>
                             <button
                                 type="button"
                                 onclick="tambahKeKeranjang('${kategoriKey}', ${idx}, '${defaultVarian}')"
-                                class="text-xs font-bold px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                                class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
                             >
                                 + Tambah
                             </button>
@@ -220,17 +224,11 @@
                 const row = document.createElement("div");
                 row.className = `py-2.5 ${habis ? "opacity-60" : ""}`;
                 row.innerHTML = `
-                    <div class="flex items-center justify-between gap-2 flex-wrap">
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <p class="font-semibold text-sm text-gray-800">${item.nama}</p>
-                                ${habis ? `<span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">HABIS</span>` : ""}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            ${tombolHtml}
-                        </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <p class="font-semibold text-sm text-gray-800">${item.nama}</p>
+                        ${habis ? `<span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">HABIS</span>` : ""}
                     </div>
+                    ${tombolHtml}
                 `;
                 container.appendChild(row);
             });
@@ -274,7 +272,6 @@
             if (idx === -1) return;
             const target = cartItems[idx];
 
-            // Jika qty > 1 dan memilih mix (atau mengubah ke mix lain), pecah 1 cup agar sisanya tetap tanpa mix
             if (target.isJus && mixBaru && target.qty > 1) {
                 target.qty -= 1;
 

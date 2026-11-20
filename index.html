@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pesan Jus Buah - Self Pickup</title>
+    <title>GOOD MOOD - Self Pickup</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
@@ -22,29 +22,37 @@
 
             <!-- Kategori: Jus -->
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
-                <h3 class="font-bold text-base text-gray-900 mb-3 border-b pb-2">Jus</h3>
+                <h3 class="font-bold text-base text-gray-900 mb-1 border-b pb-2">Jus</h3>
                 <p class="text-xs text-gray-500 mb-3">
-                    Ingin di-mix? Pilih buah campurannya pada item jus yang dipilih (+ Rp 2.000 / cup).
+                    Klik <strong>+ Tambah</strong> untuk memasukkan jus. Jika ingin pesan ukuran Biasa & Besar sekaligus atau mix berbeda, klik <strong>+ Tambah</strong> lagi (+ Rp 2.000 / cup mix).
                 </p>
-                <div id="list-jus" class="space-y-3"></div>
+                <div id="list-jus" class="divide-y"></div>
             </div>
 
             <!-- Kategori: Salad Buah -->
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
                 <h3 class="font-bold text-base text-gray-900 mb-3 border-b pb-2">Salad Buah</h3>
-                <div id="list-salad" class="space-y-3"></div>
+                <div id="list-salad" class="divide-y"></div>
             </div>
 
             <!-- Kategori: Sop Buah -->
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
                 <h3 class="font-bold text-base text-gray-900 mb-3 border-b pb-2">Sop Buah</h3>
-                <div id="list-sop" class="space-y-3"></div>
+                <div id="list-sop" class="divide-y"></div>
             </div>
 
             <!-- Kategori: Jus Detox -->
             <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
                 <h3 class="font-bold text-base text-gray-900 mb-3 border-b pb-2">Jus Detox</h3>
-                <div id="list-detox" class="space-y-3"></div>
+                <div id="list-detox" class="divide-y"></div>
+            </div>
+        </section>
+
+        <!-- RINGKASAN PESANAN TERPILIH -->
+        <section class="mb-6 bg-white p-4 rounded-xl shadow border border-green-300">
+            <h2 class="font-bold text-lg mb-3 text-green-700">Ringkasan Pesanan</h2>
+            <div id="keranjang-list" class="space-y-2.5 text-sm">
+                <p class="text-gray-400 italic text-xs">Belum ada menu yang ditambahkan.</p>
             </div>
         </section>
 
@@ -70,7 +78,6 @@
             <h2 class="font-bold text-lg mb-2 text-green-700 text-left">Pembayaran QRIS</h2>
             <p class="text-xs text-gray-500 mb-3 text-left">Scan QRIS di bawah, bayar sesuai <strong>Total Harga Tertera</strong>, lalu kirim bukti transfer di WhatsApp, Pesanan akan diproses</p>
 
-            <!-- Ganti src dengan file gambar QRIS asli Anda (misal: ./qris.png) -->
             <div class="inline-block p-2 border rounded-lg bg-gray-100 mb-3">
                 <img src="./qris.jpg" alt="QRIS Toko" class="mx-auto rounded">
                 <span class="text-xs text-gray-500 mt-1 block">QRIS GOOD MOOD, BERBEK</span>
@@ -131,152 +138,191 @@
             ]
         };
 
-        const qtyState = {};
+        let cartItems = [];
+        let uidCounter = 1;
 
         function formatRp(angka) {
             return "Rp " + angka.toLocaleString("id-ID");
         }
 
-        function buatOpsiMixBuah(namaJusSaatIni) {
+        function buatOpsiMixBuah(namaJusSaatIni, terpilih) {
             const daftarBuah = menuData.jus
                 .filter(j => !j.habis && j.nama !== namaJusSaatIni)
-                .map(j => `<option value="${j.nama}">Mix ${j.nama} (+Rp 2.000)</option>`)
+                .map(j => `<option value="Mix ${j.nama}" ${terpilih === `Mix ${j.nama}` ? "selected" : ""}>Mix ${j.nama} (+Rp 2.000)</option>`)
                 .join("");
 
             return `
-                <option value="">Tanpa Mix</option>
+                <option value="" ${!terpilih ? "selected" : ""}>Tanpa Mix</option>
                 ${daftarBuah}
-                <option value="Mix Lainnya">Mix Lainnya (+Rp 2.000)</option>
+                <option value="Mix Lainnya" ${terpilih === "Mix Lainnya" ? "selected" : ""}>Mix Lainnya (+Rp 2.000)</option>
             `;
         }
 
-        function renderKategori(containerId, kategoriKey, items) {
+        function renderKatalogKategori(containerId, kategoriKey, items) {
             const container = document.getElementById(containerId);
             container.innerHTML = "";
 
             items.forEach((item, idx) => {
-                const varianList = Object.entries(item.harga);
-                const defaultVarian = varianList[0][0];
-                const itemId = `${kategoriKey}-${idx}`;
                 const habis = Boolean(item.habis);
-
-                qtyState[itemId] = 0;
-
-                const opsiHtml = varianList.map(([label, harga], vIdx) => `
-                    <option value="${label}" data-harga="${harga}" ${vIdx === 0 ? "selected" : ""}>
-                        ${label} (${formatRp(harga)})
-                    </option>
-                `).join("");
-
-                const mixSelectHtml = (kategoriKey === "jus" && !habis)
-                    ? `<div id="mix-box-${itemId}" class="hidden mt-1.5">
-                        <select id="mix-${itemId}" onchange="hitungTotal()" class="text-xs border border-green-300 rounded px-2 py-1 bg-green-50 text-green-900">
-                            ${buatOpsiMixBuah(item.nama)}
-                        </select>
-                       </div>`
-                    : "";
+                const varianList = Object.entries(item.harga);
+                const ringkasanHarga = varianList.map(([label, h]) => `${label}: ${formatRp(h)}`).join(" • ");
 
                 const row = document.createElement("div");
-                row.className = `flex items-start justify-between gap-2 py-2 border-b last:border-b-0 ${habis ? "opacity-60" : ""}`;
+                row.className = `flex items-center justify-between gap-2 py-2.5 ${habis ? "opacity-60" : ""}`;
                 row.innerHTML = `
-                    <div class="flex-1 min-w-0">
+                    <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <p class="font-semibold text-sm text-gray-800 truncate">${item.nama}</p>
+                            <p class="font-semibold text-sm text-gray-800">${item.nama}</p>
                             ${habis ? `<span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">HABIS</span>` : ""}
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap mt-1">
-                            ${
-                                varianList.length > 1
-                                ? `<select id="varian-${itemId}" onchange="hitungTotal()" ${habis ? "disabled" : ""} class="text-xs border rounded px-2 py-1 bg-gray-50 disabled:bg-gray-100">
-                                    ${opsiHtml}
-                                   </select>`
-                                : `<p class="text-xs text-green-700 font-medium">${formatRp(varianList[0][1])}</p>
-                                   <input type="hidden" id="varian-${itemId}" value="${defaultVarian}" data-harga="${varianList[0][1]}">`
-                            }
-                        </div>
-                        ${mixSelectHtml}
+                        <p class="text-xs text-green-700 font-medium mt-0.5">${ringkasanHarga}</p>
                     </div>
-                    <div class="flex items-center space-x-2 pt-0.5">
-                        <button type="button" onclick="ubahQty('${itemId}', -1)" ${habis ? "disabled" : ""} class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-40 font-bold text-sm">-</button>
-                        <span id="qty-${itemId}" class="w-5 text-center text-sm font-bold">0</span>
-                        <button type="button" onclick="ubahQty('${itemId}', 1)" ${habis ? "disabled" : ""} class="w-7 h-7 rounded-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-bold text-sm">+</button>
-                    </div>
+                    <button
+                        type="button"
+                        ${habis ? "disabled" : ""}
+                        onclick="tambahKeKeranjang('${kategoriKey}', ${idx})"
+                        class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg ${habis ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}"
+                    >
+                        + Tambah
+                    </button>
                 `;
                 container.appendChild(row);
             });
         }
 
-        function ubahQty(itemId, delta) {
-            const next = Math.max(0, (qtyState[itemId] || 0) + delta);
-            qtyState[itemId] = next;
-            document.getElementById(`qty-${itemId}`).innerText = next;
+        function tambahKeKeranjang(kategoriKey, idx) {
+            const item = menuData[kategoriKey][idx];
+            if (!item || item.habis) return;
 
-            const mixBox = document.getElementById(`mix-box-${itemId}`);
-            const mixSelect = document.getElementById(`mix-${itemId}`);
-            if (mixBox && mixSelect) {
-                if (next > 0) {
-                    mixBox.classList.remove("hidden");
-                } else {
-                    mixBox.classList.add("hidden");
-                    mixSelect.value = "";
+            const varianList = Object.entries(item.harga);
+            const defaultVarian = varianList[0][0];
+
+            if (kategoriKey !== "jus") {
+                const existing = cartItems.find(c => c.kategoriKey === kategoriKey && c.nama === item.nama);
+                if (existing) {
+                    existing.qty += 1;
+                    renderKeranjang();
+                    return;
                 }
             }
 
-            hitungTotal();
+            cartItems.push({
+                uid: uidCounter++,
+                kategoriKey,
+                nama: item.nama,
+                hargaMap: item.harga,
+                varian: defaultVarian,
+                mixBuah: "",
+                qty: 1,
+                isJus: kategoriKey === "jus"
+            });
+
+            renderKeranjang();
         }
 
-        function ambilItemTerpilih() {
-            const terpilih = [];
+        function ubahVarianCart(uid, varianBaru) {
+            const target = cartItems.find(c => c.uid === uid);
+            if (!target) return;
+            target.varian = varianBaru;
+            renderKeranjang();
+        }
+
+        function ubahMixCart(uid, mixBaru) {
+            const target = cartItems.find(c => c.uid === uid);
+            if (!target) return;
+            target.mixBuah = mixBaru;
+            renderKeranjang();
+        }
+
+        function ubahQtyCart(uid, delta) {
+            const idx = cartItems.findIndex(c => c.uid === uid);
+            if (idx === -1) return;
+            const nextQty = cartItems[idx].qty + delta;
+            if (nextQty <= 0) {
+                cartItems.splice(idx, 1);
+            } else {
+                cartItems[idx].qty = nextQty;
+            }
+            renderKeranjang();
+        }
+
+        function hitungSubtotalDanRincian() {
             let subtotal = 0;
+            const rincian = cartItems.map(c => {
+                const hargaSatuan = c.hargaMap[c.varian] || 0;
+                const biayaMixPerCup = (c.isJus && c.mixBuah) ? BIAYA_MIX : 0;
+                const totalBaris = (hargaSatuan + biayaMixPerCup) * c.qty;
+                subtotal += totalBaris;
 
-            for (const [kategoriKey, items] of Object.entries(menuData)) {
-                items.forEach((item, idx) => {
-                    if (item.habis) return;
+                return {
+                    ...c,
+                    hargaSatuan,
+                    biayaMixPerCup,
+                    totalBaris
+                };
+            });
 
-                    const itemId = `${kategoriKey}-${idx}`;
-                    const qty = qtyState[itemId] || 0;
-                    if (qty > 0) {
-                        const el = document.getElementById(`varian-${itemId}`);
-                        let varianNama = "";
-                        let hargaSatuan = 0;
+            return { subtotal, rincian };
+        }
 
-                        if (el.tagName === "SELECT") {
-                            varianNama = el.value;
-                            hargaSatuan = parseInt(el.options[el.selectedIndex].getAttribute("data-harga"));
-                        } else {
-                            varianNama = el.value;
-                            hargaSatuan = parseInt(el.getAttribute("data-harga"));
-                        }
+        function renderKeranjang() {
+            const container = document.getElementById("keranjang-list");
 
-                        let mixBuah = "";
-                        let biayaMixItem = 0;
-                        if (kategoriKey === "jus") {
-                            const mixEl = document.getElementById(`mix-${itemId}`);
-                            if (mixEl && mixEl.value) {
-                                mixBuah = mixEl.value;
-                                biayaMixItem = BIAYA_MIX * qty;
-                            }
-                        }
-
-                        const totalItem = (hargaSatuan * qty) + biayaMixItem;
-                        subtotal += totalItem;
-
-                        terpilih.push({
-                            nama: item.nama,
-                            varian: varianNama,
-                            mixBuah,
-                            qty,
-                            totalItem
-                        });
-                    }
-                });
+            if (cartItems.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 italic text-xs">Belum ada menu yang ditambahkan.</p>`;
+                hitungTotal();
+                return;
             }
 
-            return { terpilih, subtotal };
+            const { subtotal, rincian } = hitungSubtotalDanRincian();
+
+            container.innerHTML = rincian.map(item => {
+                const varianEntries = Object.entries(item.hargaMap);
+                const selectVarianHtml = varianEntries.length > 1
+                    ? `<select onchange="ubahVarianCart(${item.uid}, this.value)" class="text-xs border rounded px-2 py-1 bg-gray-50">
+                        ${varianEntries.map(([vLabel, vHarga]) => `
+                            <option value="${vLabel}" ${item.varian === vLabel ? "selected" : ""}>
+                                ${vLabel} (${formatRp(vHarga)})
+                            </option>
+                        `).join("")}
+                       </select>`
+                    : `<span class="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">${item.varian} • ${formatRp(item.hargaSatuan)}</span>`;
+
+                const selectMixHtml = item.isJus
+                    ? `<select onchange="ubahMixCart(${item.uid}, this.value)" class="text-xs border border-green-300 rounded px-2 py-1 bg-green-50 text-green-900">
+                        ${buatOpsiMixBuah(item.nama, item.mixBuah)}
+                       </select>`
+                    : "";
+
+                return `
+                    <div class="p-2.5 rounded-lg border border-gray-200 bg-gray-50">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <p class="font-bold text-gray-800">${item.nama}</p>
+                                <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                                    ${selectVarianHtml}
+                                    ${selectMixHtml}
+                                </div>
+                            </div>
+                            <p class="font-bold text-green-700 text-sm shrink-0">${formatRp(item.totalBaris)}</p>
+                        </div>
+                        <div class="flex items-center justify-end gap-2 mt-2">
+                            <button type="button" onclick="ubahQtyCart(${item.uid}, -1)" class="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 font-bold text-xs">-</button>
+                            <span class="w-5 text-center font-bold text-xs">${item.qty}</span>
+                            <button type="button" onclick="ubahQtyCart(${item.uid}, 1)" class="w-6 h-6 rounded-full bg-green-600 hover:bg-green-700 text-white font-bold text-xs">+</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            hitungTotal(subtotal);
         }
 
-        function hitungTotal() {
-            const { subtotal } = ambilItemTerpilih();
+        function hitungTotal(subtotalLangsung) {
+            const subtotal = typeof subtotalLangsung === "number"
+                ? subtotalLangsung
+                : hitungSubtotalDanRincian().subtotal;
+
             const infoUnik = document.getElementById("info-kode-unik");
 
             if (subtotal === 0) {
@@ -295,22 +341,22 @@
             const nama = document.getElementById("nama").value.trim();
             const wa = document.getElementById("whatsapp").value.trim();
             const catatan = document.getElementById("catatan").value.trim();
-            const { terpilih, subtotal } = ambilItemTerpilih();
+            const { subtotal, rincian } = hitungSubtotalDanRincian();
 
             if (!nama || !wa) {
                 alert("Mohon isi Nama dan Nomor WhatsApp terlebih dahulu!");
                 return;
             }
 
-            if (terpilih.length === 0) {
-                alert("Pilih minimal 1 menu terlebih dahulu!");
+            if (rincian.length === 0) {
+                alert("Tambahkan minimal 1 menu ke pesanan terlebih dahulu!");
                 return;
             }
 
-            const rincianLines = terpilih.map(item => {
+            const rincianLines = rincian.map(item => {
                 const labelVarian = item.varian === "Standar" ? "" : ` [${item.varian}]`;
                 const labelMix = item.mixBuah ? ` (${item.mixBuah})` : "";
-                return `- ${item.qty}x ${item.nama}${labelVarian}${labelMix} (${formatRp(item.totalItem)})`;
+                return `- ${item.qty}x ${item.nama}${labelVarian}${labelMix} (${formatRp(item.totalBaris)})`;
             });
 
             const totalAkhir = subtotal + kodeUnik;
@@ -334,10 +380,11 @@
             window.open(urlWA, "_blank");
         }
 
-        renderKategori("list-jus", "jus", menuData.jus);
-        renderKategori("list-salad", "salad", menuData.salad);
-        renderKategori("list-sop", "sop", menuData.sop);
-        renderKategori("list-detox", "detox", menuData.detox);
+        renderKatalogKategori("list-jus", "jus", menuData.jus);
+        renderKatalogKategori("list-salad", "salad", menuData.salad);
+        renderKatalogKategori("list-sop", "sop", menuData.sop);
+        renderKatalogKategori("list-detox", "detox", menuData.detox);
+        renderKeranjang();
     </script>
 </body>
 </html>
